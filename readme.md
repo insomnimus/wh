@@ -24,7 +24,7 @@ cd rs-which
 cargo install --path .
 ```
 
-### Using cargo install
+### 2- Using cargo install
 
 ```sh
 cargo install --git https://github.com/insomnimus/rs-which
