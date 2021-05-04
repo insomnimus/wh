@@ -7,10 +7,11 @@ use std::env;
 use std::path::PathBuf;
 use std::process::exit;
 
-const VERSION: &str = "0.2.0";
+const VERSION: &str = "1.0.0";
 const ABOUT: &str = "find files under $PATH";
 
 struct Cmd {
+    complete: String,
     exact: bool,
     all: bool,
     no_check: bool,
@@ -18,45 +19,62 @@ struct Cmd {
 }
 
 impl Cmd {
-    fn from_args() -> Self {
+    fn app() -> App<'static> {
         let app = App::new("wh")
             .version(VERSION)
             .about(ABOUT)
             .author("Taylan GÖkkaya<github.com/insomnimus>")
-            .usage("wh [OPTIONS] <FILE...>")
-            .help_message("show this message and exit")
+            .override_usage("wh [OPTIONS] <FILE...>")
             .setting(AppSettings::NoBinaryName)
-            .template(
+            .help_template(
                 "wh, {about}
 usage: 
 	{usage}
 	{all-args}",
             );
 
-        let no_check = Arg::with_name("no-check")
+        let complete = Arg::new("completions")
+            .long("completions")
+            .about("generate shell autocompletions")
+            .takes_value(true)
+            .possible_values(&["bash", "elvish", "fish", "powershell", "zsh"]);
+
+        let no_check = Arg::new("no-check")
             .long("no-check")
-            .help("do not ignore patterns with only '*'");
+            .about("do not ignore patterns with only '*'")
+            .conflicts_with("exact");
 
-        let f_all = Arg::with_name("all")
+        let f_all = Arg::new("all")
             .long("all")
-            .short("a")
-            .help("do not stop after the first match but print them all");
+            .short('a')
+            .about("do not stop after the first match but print them all");
 
-        let f_exact = Arg::with_name("exact").short("e").long("exact");
+        let f_exact = Arg::new("exact").short('e').long("exact");
         #[cfg(windows)]
-        let f_exact = f_exact.help("do not expand glob patterns and do not append missing '.exe'");
+        let f_exact = f_exact.about("do not expand glob patterns and do not append missing '.exe'");
         #[cfg(not(windows))]
         let f_exact = f_exact.help("do not expand glob patterns");
 
-        let f_targets = Arg::with_name("file").multiple(true).required(true);
-
-        let matches = app
-            .arg(f_all)
+        let f_targets = Arg::new("file").multiple(true).required(true);
+        app.arg(f_all)
             .arg(f_exact)
             .arg(no_check)
+            .arg(complete)
             .arg(f_targets)
-            .get_matches();
+    }
 
+    fn from_args() -> Self {
+        let matches = Self::app().get_matches();
+
+        if matches.is_present("completions") {
+            return Self {
+                complete: matches.value_of("completions").unwrap().to_string(),
+                no_check: false,
+                all: false,
+                exact: false,
+                files: vec![],
+            };
+        }
         let exact = matches.is_present("exact");
         let no_check = if !exact {
             matches.is_present("no-check")
@@ -72,11 +90,23 @@ usage:
             .map(|s| s.to_string())
             .skip(1)
             .collect();
+
+        #[cfg(windows)]
+        let mut files = files;
+        #[cfg(windows)]
+        if !exact {
+            for f in files.iter_mut() {
+                if !f.contains('.') && !f.ends_with('*') {
+                    *f += ".exe";
+                }
+            }
+        }
         Self {
             files,
             all,
             exact,
             no_check,
+            complete: String::new(),
         }
     }
 
@@ -115,19 +145,6 @@ usage:
             exit(1);
         });
 
-        #[cfg(windows)]
-        let mut targets = vec![];
-        #[cfg(not(windows))]
-        let targets = self.files;
-        #[cfg(windows)]
-        for t in &self.files {
-            targets.push(if is_glob(&t) || t.ends_with(".exe") {
-                t.to_owned()
-            } else {
-                t.to_owned() + ".exe"
-            });
-        }
-
         let mut exit_code = 0i32;
         let files: Vec<PathBuf> = env::split_paths(&paths)
             .map(|p| p.read_dir())
@@ -143,7 +160,7 @@ usage:
             require_literal_leading_dot: true,
         };
 
-        for t in &targets {
+        for t in &self.files {
             if !self.no_check && t == "*" {
                 eprintln!("*: ignored because the --no-check flag was not set");
                 continue;
@@ -194,6 +211,24 @@ usage:
             self.execute_expand()
         }
     }
+
+    fn generate_completions(sh: &str) {
+        use clap_generate::{
+            generate,
+            generators::{Bash, Elvish, Fish, PowerShell, Zsh},
+        };
+        use std::io;
+
+        let mut app = Self::app();
+        match sh {
+            "bash" => generate::<Bash, _>(&mut app, "wh", &mut io::stdout()),
+            "elvish" => generate::<Elvish, _>(&mut app, "wh", &mut io::stdout()),
+            "fish" => generate::<Fish, _>(&mut app, "wh", &mut io::stdout()),
+            "powershell" => generate::<PowerShell, _>(&mut app, "wh", &mut io::stdout()),
+            "zsh" => generate::<Zsh, _>(&mut app, "wh", &mut io::stdout()),
+            _ => panic!("impossible route"),
+        };
+    }
 }
 
 fn is_glob(s: &str) -> bool {
@@ -207,6 +242,10 @@ fn is_glob(s: &str) -> bool {
 
 fn main() {
     let app = Cmd::from_args();
+    if !app.complete.is_empty() {
+        Cmd::generate_completions(&app.complete[..]);
+        return;
+    }
     if app.files.is_empty() {
         if app.exact || app.all || app.no_check {
             eprintln!("missing argument: file");
