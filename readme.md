@@ -43,4 +43,4 @@ Then just use it as you would the `which` tool:
 
 `wh cargo`
 
-`wh --all 'cargo-*'
+`wh --all 'cargo-*'`
