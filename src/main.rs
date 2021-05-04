@@ -7,7 +7,7 @@ use std::env;
 use std::path::PathBuf;
 use std::process::exit;
 
-const VERSION: &str = "1.0.0";
+const VERSION: &str = "1.0.1";
 const ABOUT: &str = "find files under $PATH";
 
 struct Cmd {
@@ -53,7 +53,7 @@ usage:
         #[cfg(windows)]
         let f_exact = f_exact.about("do not expand glob patterns and do not append missing '.exe'");
         #[cfg(not(windows))]
-        let f_exact = f_exact.help("do not expand glob patterns");
+        let f_exact = f_exact.about("do not expand glob patterns");
 
         let f_targets = Arg::new("file").multiple(true).required(true);
         app.arg(f_all)
