@@ -1,159 +1,203 @@
+extern crate clap;
+extern crate glob;
+
+use clap::{App, Arg, AppSettings};
+use glob::{MatchOptions, Pattern};
 use std::env;
-use std::path::PathBuf;
 use std::process::exit;
+use std::path::PathBuf;
 
-fn show_usage() {
-	let cmd = match env::current_exe() {
-		Ok(p) => match p.file_name() {
-			Some(s) => s.to_str().unwrap().to_owned(),
-			None => String::from("wh"),
-		},
-		Err(_) => String::from("wh"),
-	};
-	eprintln!(
-		"usage:
-	{} [options] <filename...>",
-		cmd
-	);
-	exit(1);
+const VERSION: &str= "0.2.0";
+const ABOUT: &str= "find files under $PATH";
+
+struct Cmd {
+	exact: bool,
+	all: bool,
+	no_check: bool,
+	files: Vec<String>,
 }
 
-fn show_help() {
-	let cmd = match env::current_exe() {
-		Ok(p) => match p.file_name() {
-			Some(s) => s.to_str().unwrap().to_owned(),
-			None => String::from("wh"),
-		},
-		Err(_) => String::from("wh"),
-	};
+impl Cmd {
+	fn from_args() -> Self {
+		let app = App::new("wh")
+			.version(VERSION)
+			.about(ABOUT)
+			.author("Taylan GÖkkaya<github.com/insomnimus>")
+			.usage("wh [OPTIONS] <FILE...>")
+			.help_message("show this message and exit")
+			.setting(AppSettings::NoBinaryName)
+	.template("wh, {about}
+usage: 
+	{usage}
+	{all-args}");
+	
+	let no_check= Arg::with_name("no-check")
+	.long("no-check")
+	.help("do not ignore patterns with only '*'");
+		
+		let f_all = Arg::with_name("all")
+			.long("all")
+			.short("a")
+			.help("do not stop after the first match but print them all");
 
-	println!(
-		"{}, finds files under $PATH
-usage:
-	{} [options] <filename...>
-options:
-	-a, --all: print every match instead of just the first",
-		cmd, cmd
-	);
-	#[cfg(windows)]
-	println!("\t-e, --exact: do not append missing '.exe' prefix");
-
-	exit(0);
-}
-
-struct CmdArgs {
-	f_help: bool,
-	f_all: bool,
-	show_usage: bool,
-	targets: Vec<String>,
-}
-
-impl CmdArgs {
-	fn parse(args: Vec<String>) -> Self {
-		if args.is_empty() {
-			return Self {
-				show_usage: true,
-				f_help: false,
-				f_all: false,
-				targets: args,
-			};
-		}
-
-		let mut targets: Vec<String> = vec![];
-		let mut f_all = false;
+		let f_exact = Arg::with_name("exact").short("e").long("exact");
 		#[cfg(windows)]
-		let mut f_exact = false;
-		for a in args {
-			match &a[..] {
-				"-h" | "--help" => {
-					return Self {
-						f_help: true,
-						f_all: false,
-						targets: vec![],
-						show_usage: false,
-					}
-				}
-				"-a" | "--all" => f_all = true,
-				#[cfg(windows)]
-				"-ea" | "-ae" => {
-					f_all = true;
-					f_exact = true;
-				}
-				#[cfg(windows)]
-				"-e" | "--exact" => f_exact = true,
-				_ => targets.push(a),
-			};
-		}
+		let f_exact = f_exact.help("do not expand glob patterns and do not append missing '.exe'");
+		#[cfg(not(windows))]
+		let f_exact = f_exact.help("do not expand glob patterns");
 
-		#[cfg(windows)]
-		if f_exact {
-			return Self {
-				f_all,
-				f_help: false,
-				show_usage: false,
-				targets,
-			};
-		} else {
-			targets = targets
-				.into_iter()
-				.map(|x| if x.contains('.') { x } else { x + ".exe" })
-				.collect();
-		}
+		let f_targets = Arg::with_name("file").multiple(true).required(true);
 
-		Self {
-			f_help: false,
-			f_all,
-			targets,
-			show_usage: false,
-		}
+		let matches = app.arg(f_all).arg(f_exact).arg(no_check).arg(f_targets).get_matches();
+
+		let exact= matches.is_present("exact");
+		let no_check= if !exact {
+			matches.is_present("no-check")
+		}else{
+			true
+		};
+		
+		let all= matches.is_present("all");
+		
+		let files: Vec<String> = matches.values_of("file").unwrap().map(|s| s.to_string()).skip(1).collect();
+		Self { files, all, exact, no_check}
 	}
 
-	fn execute(&self) -> i32 {
+	fn execute_exact(&self) -> i32 {
 		let paths = env::var("PATH").unwrap_or_else(|e| {
-			eprintln!("could not access the value of $PATH: {:?}", e);
+			eprintln!("could not read the value of $PATH: {:?}", e);
 			exit(1);
 		});
-
 		let paths: Vec<PathBuf> = env::split_paths(&paths).collect();
-
 		let mut exit_code = 0i32;
-		for t in &self.targets {
+
+		for t in &self.files {
 			let mut found = false;
 			for p in &paths {
-				let mut x = p.clone();
-				x.push(&t);
-				if x.exists() {
+				let mut tmp = p.clone();
+				tmp.push(&t);
+				if tmp.exists() {
 					found = true;
-					println!("{}", x.display());
-					if !self.f_all {
+					println!("{}", tmp.display());
+					if !self.all {
 						break;
 					}
 				}
 			}
 			if !found {
+				exit_code = 2;
 				println!("{}: not found", &t);
-				exit_code = 1;
+			}
+		}
+		exit_code
+	}
+
+	fn execute_expand(&self) -> i32 {
+		let paths = env::var("PATH").unwrap_or_else(|e| {
+			eprintln!("could not read the value of $PATH: {:?}", e);
+			exit(1);
+		});
+
+		#[cfg(windows)]
+		let mut targets = vec![];
+		#[cfg(not(windows))]
+		let targets = self.files;
+		#[cfg(windows)]
+		for t in &self.files {
+			targets.push(if is_glob(&t) || t.ends_with(".exe") {
+				t.to_owned()
+			} else {
+				t.to_owned() + ".exe"
+			});
+		}
+
+		let mut exit_code = 0i32;
+		let files: Vec<PathBuf> = env::split_paths(&paths)
+			.map(|p| p.read_dir())
+			.filter_map(|e| e.ok())
+			.flatten()
+			.filter_map(|e| e.ok())
+			.map(|p| p.path())
+			.collect();
+			
+		const OPT: MatchOptions = MatchOptions {
+			case_sensitive: false,
+			require_literal_separator: true,
+			require_literal_leading_dot: true,
+		};
+
+		for t in &targets {
+			if !self.no_check && t== "*" {
+				eprintln!("*: ignored because the --no-check flag was not set");
+				continue;
+			}
+			let mut found = false;
+			let glob = match Pattern::new(&t) {
+				Ok(g) => g,
+				Err(_) => {
+					exit_code = 1;
+					eprintln!("invalid glob pattern '{}'", &t);
+					continue;
+				}
+			};
+		let g= is_glob(&t[..]);
+			for f in &files {
+				let s= match f.file_name() {
+					Some(n)=> match n.to_str() {
+						Some(name)=> name,
+						_=> continue,
+					},
+					_=> continue,
+				};
+				if glob.matches_with(&s[..], OPT) {
+					found = true;
+					println!("{}", f.display());
+					if !self.all && !g{
+						break;
+					}
+				}
+			}
+			if !found {
+				exit_code = 2;
+				if t.contains('*') || t.contains('[') || t.contains('?') {
+					eprintln!("{}: no matches", &t);
+				} else {
+					eprintln!("{}: not found", &t);
+				}
 			}
 		}
 
 		exit_code
 	}
+
+	fn execute(&self) -> i32 {
+		if self.exact {
+			self.execute_exact()
+		} else {
+			self.execute_expand()
+		}
+	}
+}
+
+fn is_glob(s: &str) -> bool {
+	for &c in s.as_bytes() {
+		if c == b'*' || c == b'?' || c == b'[' {
+			return true;
+		}
+	}
+	false
 }
 
 fn main() {
-	let args: Vec<String> = env::args().skip(1).collect();
-	let cmd = CmdArgs::parse(args);
-	if cmd.f_help {
-		show_help();
-		return;
+	let app= Cmd::from_args();
+	if app.files.is_empty() {
+		if app.exact || app.all || app.no_check{
+			eprintln!("missing argument: file");
+			exit(1);
+		}
+		eprintln!("wh, {}\nuse with --help for the usage", ABOUT);
+		exit(0);
 	}
-	if cmd.show_usage {
-		show_usage();
-		return;
-	}
-	if cmd.targets.is_empty() {
-		eprintln!("missing required argument: target to search for");
-		exit(1);
-	}
-	exit(cmd.execute());
+	
+	exit(app.execute());
 }
