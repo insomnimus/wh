@@ -42,4 +42,5 @@ So make sure it's under your `$PATH`.
 Then just use it as you would the `which` tool:
 
 `wh cargo`
-`which --all 'cargo-*'
+
+`wh --all 'cargo-*'
