@@ -10,7 +10,7 @@ Wh finds files under your `$PATH` and that's all it does.
 -	Cross platform.
 -	Shipped with shell completions.
 
-## OInstallation
+## Installation
 
 You will need a recent [rust](https://github.com/rust-lang/rust) setup and [cargo](https://github.com/rust-lang/cargo).
 
