@@ -27,7 +27,7 @@ cargo install --path .
 ### 2- Using cargo install
 
 ```sh
-cargo install --git https://github.com/insomnimus/rs-which
+cargo install --git https://github.com/insomnimus/rs-which --branch main
 ```
 
 ## Usage
