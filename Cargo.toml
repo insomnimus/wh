@@ -1,5 +1,5 @@
 [package]
-name = "rs-which"
+name = "wh"
 version = "1.0.1"
 authors = ["insomnimus <insomnimus19@gmail.com>"]
 edition = "2018"
@@ -10,7 +10,7 @@ include = [
 "LICENSE",
 ]
 description= "A 'which' tool replacement."
-repository = "https://github.com/insomnimus/rs-which"
+repository = "https://github.com/insomnimus/wh"
 keywords= ["cli", "tool"]
 license= "MIT"
 readme= "readme.md"
