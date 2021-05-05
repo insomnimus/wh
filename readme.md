@@ -19,15 +19,16 @@ There're currently two ways to install `wh` on your system:
 ### 1- Install using git clone
 
 ```sh
-git clone https://github.com/insomnimus/rs-which
-cd rs-which
+git clone https://github.com/insomnimus/wh
+cd wh
+git checkout main
 cargo install --path .
 ```
 
 ### 2- Using cargo install
 
 ```sh
-cargo install --git https://github.com/insomnimus/rs-which --branch main
+cargo install --git https://github.com/insomnimus/wh --branch main
 ```
 
 ## Usage
