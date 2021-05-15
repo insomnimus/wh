@@ -1,112 +1,68 @@
-extern crate clap;
-extern crate glob;
+mod app;
 
-use clap::{App, AppSettings, Arg};
 use glob::{MatchOptions, Pattern};
+use std::collections::HashMap;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::exit;
-
-const VERSION: &str = "1.0.1";
-const ABOUT: &str = "find files under $PATH";
+use walkdir::{DirEntry, WalkDir};
 
 struct Cmd {
-    complete: String,
+    recursive: bool,
+    hidden: bool,
     exact: bool,
     all: bool,
     no_check: bool,
-    files: Vec<String>,
+    find_under: Option<Vec<String>>,
+    args: Vec<String>,
 }
 
 impl Cmd {
-    fn app() -> App<'static> {
-        let app = App::new("wh")
-            .version(VERSION)
-            .about(ABOUT)
-            .author("Taylan GÖkkaya<github.com/insomnimus>")
-            .override_usage("wh [OPTIONS] <FILE...>")
-            .setting(AppSettings::NoBinaryName)
-            .help_template(
-                "wh, {about}
-usage: 
-	{usage}
-	{all-args}",
-            );
-
-        let complete = Arg::new("completions")
-            .long("completions")
-            .about("generate shell autocompletions")
-            .takes_value(true)
-            .possible_values(&["bash", "elvish", "fish", "powershell", "zsh"]);
-
-        let no_check = Arg::new("no-check")
-            .long("no-check")
-            .about("do not ignore patterns with only '*'")
-            .conflicts_with("exact");
-
-        let f_all = Arg::new("all")
-            .long("all")
-            .short('a')
-            .about("do not stop after the first match but print them all");
-
-        let f_exact = Arg::new("exact").short('e').long("exact");
-        #[cfg(windows)]
-        let f_exact = f_exact.about("do not expand glob patterns and do not append missing '.exe'");
-        #[cfg(not(windows))]
-        let f_exact = f_exact.about("do not expand glob patterns");
-
-        let f_targets = Arg::new("file").multiple(true).required(true);
-        app.arg(f_all)
-            .arg(f_exact)
-            .arg(no_check)
-            .arg(complete)
-            .arg(f_targets)
-    }
-
     fn from_args() -> Self {
-        let matches = Self::app().get_matches();
+        let matches = app::new().get_matches();
 
-        if matches.is_present("completions") {
-            return Self {
-                complete: matches.value_of("completions").unwrap().to_string(),
-                no_check: false,
-                all: false,
-                exact: false,
-                files: vec![],
-            };
-        }
+        let recursive = matches.is_present("recursive");
+        let hidden = matches.is_present("hidden");
         let exact = matches.is_present("exact");
-        let no_check = if !exact {
-            matches.is_present("no-check")
+        let no_check = matches.is_present("no-check");
+        let all = if !matches.is_present("all") {
+            false
         } else {
-            true
+            match matches.value_of("all") {
+                None => true,
+                Some(s) => s == "true" || s == "yes",
+            }
         };
 
-        let all = matches.is_present("all");
-
-        let files: Vec<String> = matches
-            .values_of("file")
+        let args: Vec<String> = matches
+            .values_of("target")
             .unwrap()
             .map(|s| s.to_string())
-            .skip(1)
             .collect();
+        let find_under = match matches.values_of("find-under") {
+            None => None,
+            Some(itr) => Some(itr.map(|s| s.to_string()).collect()),
+        };
 
         #[cfg(windows)]
-        let mut files = files;
+        let mut args = args;
         #[cfg(windows)]
         if !exact {
-            for f in files.iter_mut() {
-                if !f.contains('.') && !f.ends_with('*') {
-                    *f += ".exe";
+            for s in args.iter_mut() {
+                if !is_glob(&s) && !s.ends_with(".exe") {
+                    *s += ".exe";
                 }
             }
         }
+
         Self {
-            files,
-            all,
+            recursive,
+            hidden,
             exact,
+            all,
             no_check,
-            complete: String::new(),
+            find_under,
+            args,
         }
     }
 
@@ -115,10 +71,12 @@ usage:
             eprintln!("could not read the value of $PATH: {:?}", e);
             exit(1);
         });
+
         let paths: Vec<PathBuf> = env::split_paths(&paths).collect();
+
         let mut exit_code = 0i32;
 
-        for t in &self.files {
+        for t in &self.args {
             let mut found = false;
             for p in &paths {
                 let mut tmp = p.clone();
@@ -132,7 +90,7 @@ usage:
                 }
             }
             if !found {
-                exit_code = 2;
+                exit_code = 3;
                 println!("{}: not found", &t);
             }
         }
@@ -160,16 +118,17 @@ usage:
             require_literal_leading_dot: true,
         };
 
-        for t in &self.files {
+        for t in &self.args {
             if !self.no_check && t == "*" {
                 eprintln!("*: ignored because the --no-check flag was not set");
                 continue;
             }
+
             let mut found = false;
             let glob = match Pattern::new(&t) {
                 Ok(g) => g,
                 Err(_) => {
-                    exit_code = 1;
+                    exit_code = 2;
                     eprintln!("invalid glob pattern '{}'", &t);
                     continue;
                 }
@@ -192,12 +151,9 @@ usage:
                 }
             }
             if !found {
-                exit_code = 2;
-                if t.contains('*') || t.contains('[') || t.contains('?') {
-                    eprintln!("{}: no matches", &t);
-                } else {
-                    eprintln!("{}: not found", &t);
-                }
+                exit_code = 3;
+
+                eprintln!("{}: not found", &t);
             }
         }
 
@@ -205,29 +161,160 @@ usage:
     }
 
     fn execute(&self) -> i32 {
-        if self.exact {
-            self.execute_exact()
+        if self.find_under.is_none() {
+            if self.exact {
+                self.execute_exact()
+            } else {
+                self.execute_expand()
+            }
+        } else if self.recursive {
+            self.execute_recursive()
         } else {
-            self.execute_expand()
+            self.find_under()
         }
     }
 
-    fn generate_completions(sh: &str) {
-        use clap_generate::{
-            generate,
-            generators::{Bash, Elvish, Fish, PowerShell, Zsh},
-        };
-        use std::io;
+    fn find_under_exact(&self, paths: &Vec<impl AsRef<Path>>) -> i32 {
+        let mut map: HashMap<&String, bool> = HashMap::new();
 
-        let mut app = Self::app();
-        match sh {
-            "bash" => generate::<Bash, _>(&mut app, "wh", &mut io::stdout()),
-            "elvish" => generate::<Elvish, _>(&mut app, "wh", &mut io::stdout()),
-            "fish" => generate::<Fish, _>(&mut app, "wh", &mut io::stdout()),
-            "powershell" => generate::<PowerShell, _>(&mut app, "wh", &mut io::stdout()),
-            "zsh" => generate::<Zsh, _>(&mut app, "wh", &mut io::stdout()),
-            _ => panic!("impossible route"),
+        for s in &self.args {
+            map.insert(&s, false);
+        }
+
+        for p in paths {
+            let walker = WalkDir::new(p.as_ref()).into_iter();
+            for e in walker
+                .filter_entry(|e| self.hidden || !is_hidden_dir(e))
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                if !self.all && map.values().all(|&b| b && true) {
+                    return 0;
+                }
+                let fname = match e.file_name().to_str() {
+                    Some(s) => s.to_string(),
+                    None => continue,
+                };
+
+                for s in &self.args {
+                    if !self.all && *map.get(s).unwrap() {
+                        continue;
+                    }
+                    if fname == *s {
+                        map.insert(s, true);
+                        println!("{}", e.path().display());
+                    }
+                }
+            }
+        }
+
+        let mut exit_code = 0i32;
+        for (k, v) in map {
+            if !v {
+                println!("{}: not found", k);
+                exit_code = 2;
+            }
+        }
+        exit_code
+    }
+
+    fn find_under_expand(&self, paths: &Vec<impl AsRef<Path>>) -> i32 {
+        const OPT: MatchOptions = MatchOptions {
+            case_sensitive: false,
+            require_literal_separator: true,
+            require_literal_leading_dot: true,
         };
+
+        struct Target {
+            found: bool,
+            is_glob: bool,
+            glob: Pattern,
+        }
+
+        let mut map: HashMap<&String, Target> = HashMap::new();
+
+        for s in &self.args {
+            if !self.no_check && s == "*" {
+                println!("'*': ignored because the --no-check flag is not set");
+                continue;
+            }
+            map.insert(
+                &s,
+                Target {
+                    found: false,
+                    is_glob: is_glob(&s[..]),
+                    glob: Pattern::new(&s).unwrap_or_else(|e| {
+                        eprintln!("{}: invalid glob pattern: {:?}", &s, e);
+                        exit(2);
+                    }),
+                },
+            );
+        }
+
+        if map.is_empty() {
+            return 0;
+        }
+
+        for p in paths {
+            // TODO: make this concurrent
+            let walker = WalkDir::new(&p).into_iter();
+            for e in walker
+                .filter_entry(|e| self.hidden || !is_hidden_dir(e))
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                if !self.all && map.iter().all(|(_, v)| v.found && !v.is_glob) {
+                    return 0;
+                }
+                let fname = match e.file_name().to_str() {
+                    Some(s) => s,
+                    None => continue,
+                };
+
+                for (_, t) in map.iter_mut() {
+                    if !self.all && t.found && !t.is_glob {
+                        continue;
+                    }
+                    if t.glob.matches_with(fname, OPT) {
+                        println!("{}", e.path().display());
+                        t.found = true;
+                    }
+                }
+            }
+        }
+
+        let mut exit_code = 0i32;
+        for (s, t) in map {
+            if !t.found {
+                println!("{}: not found", s);
+                exit_code = 3;
+            }
+        }
+        exit_code
+    }
+
+    fn find_under(&self) -> i32 {
+        let paths = self.find_under.as_ref().unwrap();
+
+        if self.exact {
+            self.find_under_exact(paths)
+        } else {
+            self.find_under_expand(paths)
+        }
+    }
+
+    fn execute_recursive(&self) -> i32 {
+        let paths = env::var("PATH").unwrap_or_else(|e| {
+            eprintln!("could not read the value of $PATH: {:?}", e);
+            exit(1);
+        });
+
+        let paths: Vec<PathBuf> = env::split_paths(&paths).collect();
+        if self.exact {
+            self.find_under_exact(&paths)
+        } else {
+            self.find_under_expand(&paths)
+        }
     }
 }
 
@@ -240,20 +327,16 @@ fn is_glob(s: &str) -> bool {
     false
 }
 
-fn main() {
-    let app = Cmd::from_args();
-    if !app.complete.is_empty() {
-        Cmd::generate_completions(&app.complete[..]);
-        return;
+fn is_hidden_dir(e: &DirEntry) -> bool {
+    if e.file_type().is_file() {
+        return false;
     }
-    if app.files.is_empty() {
-        if app.exact || app.all || app.no_check {
-            eprintln!("missing argument: file");
-            exit(1);
-        }
-        eprintln!("wh, {}\nuse with --help for the usage", ABOUT);
-        exit(0);
-    }
+    e.file_name()
+        .to_str()
+        .map(|s| s.starts_with('.'))
+        .unwrap_or(false)
+}
 
-    exit(app.execute());
+fn main() {
+    exit(Cmd::from_args().execute());
 }

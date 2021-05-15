@@ -1,6 +1,6 @@
 [package]
 name = "wh"
-version = "1.0.1"
+version = "1.1.1"
 authors = ["insomnimus <insomnimus19@gmail.com>"]
 edition = "2018"
 include = [
@@ -23,3 +23,4 @@ path = "src/main.rs"
 clap = "3.0.0-beta.2"
 clap_generate = "3.0.0-beta.2"
 glob = "0.3.0"
+walkdir = "2.3.2"
