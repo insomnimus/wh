@@ -2,13 +2,14 @@
 
 A replacement for the `which` tool.
 
-Wh finds files under your `$PATH` and that's all it does.
+Wh finds files under your `$PATH` or any directory you specify.
 
 ## Features
 
 -	expand glob patterns.
 -	Cross platform.
 -	Shipped with shell completions.
+-	Fast.
 
 ## Installation
 
@@ -45,3 +46,7 @@ Then just use it as you would the `which` tool:
 `wh cargo`
 
 `wh --all 'cargo-*'`
+
+## Shell Completions
+
+After building wh, the completions will be generated at the crate root, follow your shell's completion installation to install them.

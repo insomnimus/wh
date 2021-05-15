@@ -83,7 +83,7 @@ impl Cmd {
                 tmp.push(&t);
                 if tmp.exists() {
                     found = true;
-                    println!("{}", tmp.display());
+                    print_path(tmp);
                     if !self.all {
                         break;
                     }
@@ -120,7 +120,7 @@ impl Cmd {
 
         for t in &self.args {
             if !self.no_check && t == "*" {
-                eprintln!("*: ignored because the --no-check flag was not set");
+                println!("*: ignored because the --no-check flag was not set");
                 continue;
             }
 
@@ -128,9 +128,8 @@ impl Cmd {
             let glob = match Pattern::new(&t) {
                 Ok(g) => g,
                 Err(_) => {
-                    exit_code = 2;
                     eprintln!("invalid glob pattern '{}'", &t);
-                    continue;
+                    return 2;
                 }
             };
             let g = is_glob(&t[..]);
@@ -144,7 +143,7 @@ impl Cmd {
                 };
                 if glob.matches_with(&s[..], OPT) {
                     found = true;
-                    println!("{}", f.display());
+                    print_path(f);
                     if !self.all && !g {
                         break;
                     }
@@ -186,7 +185,6 @@ impl Cmd {
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().is_file())
             {
                 if !self.all && map.values().all(|&b| b && true) {
                     return 0;
@@ -202,7 +200,7 @@ impl Cmd {
                     }
                     if fname == *s {
                         map.insert(s, true);
-                        println!("{}", e.path().display());
+                        print_path(e.path());
                     }
                 }
             }
@@ -261,7 +259,6 @@ impl Cmd {
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().is_file())
             {
                 if !self.all && map.iter().all(|(_, v)| v.found && !v.is_glob) {
                     return 0;
@@ -276,7 +273,7 @@ impl Cmd {
                         continue;
                     }
                     if t.glob.matches_with(fname, OPT) {
-                        println!("{}", e.path().display());
+                        print_path(e.path());
                         t.found = true;
                     }
                 }
@@ -315,6 +312,15 @@ impl Cmd {
         } else {
             self.find_under_expand(&paths)
         }
+    }
+}
+
+fn print_path(p: impl AsRef<Path>) {
+    if let Some(s) = p.as_ref().as_os_str().to_str() {
+        let x = s.trim_start_matches("./");
+        #[cfg(windows)]
+        let x = x.trim_start_matches(".\\");
+        println!("{}", x);
     }
 }
 
