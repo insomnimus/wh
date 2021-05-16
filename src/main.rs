@@ -73,10 +73,9 @@ impl Cmd {
             .unwrap()
             .map(|s| s.to_string())
             .collect();
-        let find_under = match matches.values_of("find-under") {
-            None => None,
-            Some(itr) => Some(itr.map(|s| s.to_string()).collect()),
-        };
+        let find_under = matches
+            .values_of("find-under")
+            .map(|itr| itr.map(|s| s.to_string()).collect());
 
         #[cfg(windows)]
         let mut args = args;
@@ -182,7 +181,7 @@ impl Cmd {
                     },
                     _ => continue,
                 };
-                if glob.matches_with(&s[..], OPT) {
+                if glob.matches_with(s, OPT) {
                     found = true;
                     print_path(f);
                     if !self.all && !g {
@@ -214,7 +213,7 @@ impl Cmd {
         }
     }
 
-    fn find_under_exact(&self, paths: &Vec<impl AsRef<Path>>) -> i32 {
+    fn find_under_exact(&self, paths: &[impl AsRef<Path>]) -> i32 {
         let mut map: HashMap<&String, bool> = HashMap::new();
 
         for s in &self.args {
@@ -228,7 +227,7 @@ impl Cmd {
                 .filter_map(|e| e.ok())
                 .filter(|e| self.file_type_filter.is_fine(e.path()))
             {
-                if !self.all && map.values().all(|&b| b && true) {
+                if !self.all && map.values().all(|&b| b) {
                     return 0;
                 }
                 let fname = match e.file_name().to_str() {
@@ -258,7 +257,7 @@ impl Cmd {
         exit_code
     }
 
-    fn find_under_expand(&self, paths: &Vec<impl AsRef<Path>>) -> i32 {
+    fn find_under_expand(&self, paths: &[impl AsRef<Path>]) -> i32 {
         const OPT: MatchOptions = MatchOptions {
             case_sensitive: false,
             require_literal_separator: true,
