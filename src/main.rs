@@ -381,7 +381,7 @@ fn is_hidden_dir(e: &DirEntry) -> bool {
     }
     e.file_name()
         .to_str()
-        .map(|s| s.starts_with('.'))
+        .map(|s| s != "." && s != "./" && s != ".\\" && s.starts_with('.'))
         .unwrap_or(false)
 }
 
