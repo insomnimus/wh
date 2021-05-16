@@ -82,7 +82,7 @@ impl Cmd {
         #[cfg(windows)]
         if !exact {
             for s in args.iter_mut() {
-                if !is_glob(&s) && !s.ends_with(".exe") {
+                if !is_glob(&s) && !s.contains('.') {
                     *s += ".exe";
                 }
             }
