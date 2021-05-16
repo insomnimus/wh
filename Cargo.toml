@@ -1,6 +1,6 @@
 [package]
 name = "wh"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["insomnimus <insomnimus19@gmail.com>"]
 edition = "2018"
 include = [

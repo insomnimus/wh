@@ -50,9 +50,9 @@ impl Cmd {
     fn from_args() -> Self {
         let matches = app::new().get_matches();
 
-        let file_type_filter = match matches.value_of("type").unwrap() {
-            "file" => FileType::File,
-            "folder" => FileType::Folder,
+        let file_type_filter = match matches.value_of("type") {
+            Some("file") => FileType::File,
+            Some("folder") => FileType::Folder,
             _ => FileType::Any,
         };
         let recursive = matches.is_present("recursive");
