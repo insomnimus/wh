@@ -7,7 +7,36 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use walkdir::{DirEntry, WalkDir};
 
+enum FileType {
+    Any,
+    File,
+    Folder,
+}
+
+impl FileType {
+    fn is_fine<T: AsRef<Path>>(&self, p: T) -> bool {
+        match self {
+            Self::Any => true,
+            Self::File => {
+                if let Ok(md) = p.as_ref().metadata() {
+                    md.is_file()
+                } else {
+                    false
+                }
+            }
+            Self::Folder => {
+                if let Ok(md) = p.as_ref().metadata() {
+                    md.is_dir()
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
 struct Cmd {
+    file_type_filter: FileType,
     recursive: bool,
     hidden: bool,
     exact: bool,
@@ -21,6 +50,11 @@ impl Cmd {
     fn from_args() -> Self {
         let matches = app::new().get_matches();
 
+        let file_type_filter = match matches.value_of("type").unwrap() {
+            "file" => FileType::File,
+            "folder" => FileType::Folder,
+            _ => FileType::Any,
+        };
         let recursive = matches.is_present("recursive");
         let hidden = matches.is_present("hidden");
         let exact = matches.is_present("exact");
@@ -56,6 +90,7 @@ impl Cmd {
         }
 
         Self {
+            file_type_filter,
             recursive,
             hidden,
             exact,
@@ -72,20 +107,26 @@ impl Cmd {
             exit(1);
         });
 
-        let paths: Vec<PathBuf> = env::split_paths(&paths).collect();
+        let paths: Vec<PathBuf> = env::split_paths(&paths)
+            .filter_map(|p| p.read_dir().ok())
+            .flatten()
+            .filter_map(|e| e.ok())
+            .filter(|e| self.file_type_filter.is_fine(e.path()))
+            .map(|e| e.path())
+            .collect();
 
         let mut exit_code = 0i32;
 
         for t in &self.args {
             let mut found = false;
             for p in &paths {
-                let mut tmp = p.clone();
-                tmp.push(&t);
-                if tmp.exists() {
-                    found = true;
-                    print_path(tmp);
-                    if !self.all {
-                        break;
+                if let Some(Some(s)) = p.file_name().map(|e| e.to_str()) {
+                    if s == *t {
+                        found = true;
+                        print_path(p);
+                        if !self.all {
+                            break;
+                        }
                     }
                 }
             }
@@ -104,12 +145,12 @@ impl Cmd {
         });
 
         let mut exit_code = 0i32;
-        let files: Vec<PathBuf> = env::split_paths(&paths)
-            .map(|p| p.read_dir())
-            .filter_map(|e| e.ok())
+        let paths: Vec<PathBuf> = env::split_paths(&paths)
+            .filter_map(|p| p.read_dir().ok())
             .flatten()
             .filter_map(|e| e.ok())
-            .map(|p| p.path())
+            .filter(|e| self.file_type_filter.is_fine(e.path()))
+            .map(|e| e.path())
             .collect();
 
         const OPT: MatchOptions = MatchOptions {
@@ -133,7 +174,7 @@ impl Cmd {
                 }
             };
             let g = is_glob(&t[..]);
-            for f in &files {
+            for f in &paths {
                 let s = match f.file_name() {
                     Some(n) => match n.to_str() {
                         Some(name) => name,
@@ -185,6 +226,7 @@ impl Cmd {
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
+                .filter(|e| self.file_type_filter.is_fine(e.path()))
             {
                 if !self.all && map.values().all(|&b| b && true) {
                     return 0;
@@ -259,6 +301,7 @@ impl Cmd {
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
+                .filter(|e| self.file_type_filter.is_fine(e.path()))
             {
                 if !self.all && map.iter().all(|(_, v)| v.found && !v.is_glob) {
                     return 0;

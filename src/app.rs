@@ -24,6 +24,13 @@ if the search string contains a wildcard and the --exact flag is not set, the --
         .about("do not ignore patterns containing only '*'")
         .conflicts_with("exact");
 
+    let file_type_filter = Arg::new("type")
+        .short('t')
+        .long("type")
+        .takes_value(true)
+        .possible_values(&["any", "file", "folder"])
+        .about("filter the search by file type");
+
     let all = Arg::new("all")
         .long("all")
         .short('a')
@@ -71,6 +78,7 @@ if the search string contains a wildcard and the --exact flag is not set, the --
         .arg(no_check)
         .arg(hidden)
         .arg(recursive)
+        .arg(file_type_filter)
         .arg(find_under)
         .arg(args)
 }
