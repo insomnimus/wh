@@ -43,7 +43,7 @@ if the search string contains a wildcard and the --exact flag is not set, the --
         .takes_value(false);
 
     #[cfg(windows)]
-    let exact = exact.about("do not interprete glob patterns and do not append missing .exe");
+    let exact = exact.about("do not interpret glob patterns and do not append missing .exe");
     #[cfg(not(windows))]
     let exact = exact.about("do not interprete glob patterns");
 
