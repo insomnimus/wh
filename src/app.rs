@@ -61,6 +61,13 @@ if the search string contains a wildcard and the --exact flag is not set, the --
         .multiple(true)
         .takes_value(true);
 
+    #[cfg(windows)]
+    let no_auto_exe = Arg::new("no-auto-exe")
+        .about("do not append missing .exe extension")
+        .short('N')
+        .long("no-auto-exe")
+        .takes_value(false);
+
     let args = Arg::new("target")
         .takes_value(false)
         .multiple(true)
@@ -73,12 +80,18 @@ if the search string contains a wildcard and the --exact flag is not set, the --
         .about("do not ignore hidden directories")
         .takes_value(false);
 
-    app.arg(all)
+    let app = app
+        .arg(all)
         .arg(exact)
         .arg(no_check)
         .arg(hidden)
         .arg(recursive)
         .arg(file_type_filter)
         .arg(find_under)
-        .arg(args)
+        .arg(args);
+
+    #[cfg(windows)]
+    return app.arg(no_auto_exe);
+    #[cfg(not(windows))]
+    return app;
 }

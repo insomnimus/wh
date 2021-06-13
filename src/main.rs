@@ -1,12 +1,16 @@
 mod app;
 
 use glob::{MatchOptions, Pattern};
-use std::collections::HashMap;
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::exit;
 use walkdir::{DirEntry, WalkDir};
 
+use std::{
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+    process::exit,
+};
+
+#[derive(Debug, Eq, PartialEq)]
 enum FileType {
     Any,
     File,
@@ -75,12 +79,15 @@ impl Cmd {
             .collect();
         let find_under = matches
             .values_of("find-under")
-            .map(|itr| itr.map(|s| s.to_string()).collect());
+            .map(|itr| itr.map(String::from).collect());
+
+        #[cfg(windows)]
+        let no_auto_exe = matches.is_present("no-auto-exe");
 
         #[cfg(windows)]
         let mut args = args;
         #[cfg(windows)]
-        if !exact {
+        if !exact && !no_auto_exe && file_type_filter != FileType::Folder {
             for s in args.iter_mut() {
                 if !is_glob(&s) && !s.contains('.') {
                     *s += ".exe";
