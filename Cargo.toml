@@ -21,7 +21,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap = "3.0.0-beta.2"
-clap_generate = "3.0.0-beta.2"
 glob = "0.3.0"
 walkdir = "2.3.2"
 
