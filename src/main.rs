@@ -5,7 +5,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use std::{
     collections::HashMap,
-    env,
+    env, fs,
     path::{Path, PathBuf},
     process::exit,
 };
@@ -18,23 +18,11 @@ enum FileType {
 }
 
 impl FileType {
-    fn is_fine<T: AsRef<Path>>(&self, p: T) -> bool {
+    fn is_fine(&self, t: &fs::FileType) -> bool {
         match self {
             Self::Any => true,
-            Self::File => {
-                if let Ok(md) = p.as_ref().metadata() {
-                    md.is_file()
-                } else {
-                    false
-                }
-            }
-            Self::Folder => {
-                if let Ok(md) = p.as_ref().metadata() {
-                    md.is_dir()
-                } else {
-                    false
-                }
-            }
+            Self::File => t.is_file(),
+            Self::Folder => t.is_dir(),
         }
     }
 }
@@ -110,7 +98,11 @@ impl Cmd {
             .filter_map(|p| p.read_dir().ok())
             .flatten()
             .filter_map(|e| e.ok())
-            .filter(|e| self.file_type_filter.is_fine(e.path()))
+            .filter(|e| {
+                e.file_type()
+                    .map(|t| self.file_type_filter.is_fine(&t))
+                    .unwrap_or(false)
+            })
             .map(|e| e.path())
             .collect();
 
@@ -148,7 +140,11 @@ impl Cmd {
             .filter_map(|p| p.read_dir().ok())
             .flatten()
             .filter_map(|e| e.ok())
-            .filter(|e| self.file_type_filter.is_fine(e.path()))
+            .filter(|e| {
+                e.file_type()
+                    .map(|t| self.file_type_filter.is_fine(&t))
+                    .unwrap_or(false)
+            })
             .map(|e| e.path())
             .collect();
 
@@ -172,6 +168,7 @@ impl Cmd {
                     return 2;
                 }
             };
+
             for f in &paths {
                 let s = match f.file_name() {
                     Some(n) => match n.to_str() {
@@ -191,7 +188,7 @@ impl Cmd {
             if !found {
                 exit_code = 3;
 
-                eprintln!("{}: not found", &t);
+                println!("{}: not found", &t);
             }
         }
 
@@ -224,7 +221,7 @@ impl Cmd {
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
-                .filter(|e| self.file_type_filter.is_fine(e.path()))
+                .filter(|e| self.file_type_filter.is_fine(&e.file_type()))
             {
                 if !self.all && map.values().all(|&b| b) {
                     return 0;
@@ -265,7 +262,6 @@ impl Cmd {
 
         struct Target {
             found: bool,
-            is_glob: bool,
             glob: Pattern,
         }
 
@@ -280,7 +276,6 @@ impl Cmd {
                 s,
                 Target {
                     found: false,
-                    is_glob: is_glob(&s[..]),
                     glob: Pattern::new(s).unwrap_or_else(|e| {
                         eprintln!("{}: invalid glob pattern: {:?}", &s, e);
                         exit(2);
@@ -294,14 +289,13 @@ impl Cmd {
         }
 
         for p in paths {
-            // TODO: make this concurrent
             let walker = WalkDir::new(&p).into_iter();
             for e in walker
                 .filter_entry(|e| self.hidden || !is_hidden_dir(e))
                 .filter_map(|e| e.ok())
-                .filter(|e| self.file_type_filter.is_fine(e.path()))
+                .filter(|e| self.file_type_filter.is_fine(&e.file_type()))
             {
-                if !self.all && map.iter().all(|(_, v)| v.found && !v.is_glob) {
+                if !self.all && map.iter().all(|(_, v)| v.found) {
                     return 0;
                 }
                 let fname = match e.file_name().to_str() {
@@ -310,7 +304,7 @@ impl Cmd {
                 };
 
                 for (_, t) in map.iter_mut() {
-                    if !self.all && t.found && !t.is_glob {
+                    if !self.all && t.found {
                         continue;
                     }
                     if t.glob.matches_with(fname, OPT) {
