@@ -1,22 +1,21 @@
 use clap::{crate_version, App, AppSettings, Arg};
 
 pub fn new() -> App<'static> {
-    let app= App::new("wh")
-	.version(crate_version!())
-	.about("find files")
-	.long_about("find files under $PATH or search under a directory")
-	.setting(AppSettings::UnifiedHelpMessage)
-	.help_template(
-"wh, {about}
+    let app = App::new("wh")
+        .version(crate_version!())
+        .about("find files")
+        .long_about("find files under $PATH or search under a directory")
+        .setting(AppSettings::UnifiedHelpMessage)
+        .help_template(
+            "wh, {about}
 usage:
 {bin} [OPTIONS] <PATTERN...>
 
 {unified}
 	{after-help}
 ",
-	)
-	.after_long_help("the default behaviour is to look under $PATH
-if the search string contains a wildcard and the --exact flag is not set, the --all flag will be assumed to be set");
+        )
+        .after_long_help("the default behaviour is to look under $PATH");
 
     let no_check = Arg::new("no-check")
         .long("no-check")

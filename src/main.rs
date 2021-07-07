@@ -63,14 +63,7 @@ impl Cmd {
         let hidden = matches.is_present("hidden");
         let exact = matches.is_present("exact");
         let no_check = matches.is_present("no-check");
-        let all = if !matches.is_present("all") {
-            false
-        } else {
-            match matches.value_of("all") {
-                None => true,
-                Some(s) => s == "true" || s == "yes",
-            }
-        };
+        let all = matches.is_present("all");
 
         let args: Vec<String> = matches
             .values_of("target")
@@ -179,7 +172,6 @@ impl Cmd {
                     return 2;
                 }
             };
-            let g = is_glob(&t[..]);
             for f in &paths {
                 let s = match f.file_name() {
                     Some(n) => match n.to_str() {
@@ -191,7 +183,7 @@ impl Cmd {
                 if glob.matches_with(s, OPT) {
                     found = true;
                     print_path(f);
-                    if !self.all && !g {
+                    if !self.all {
                         break;
                     }
                 }
