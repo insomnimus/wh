@@ -82,7 +82,7 @@ impl Cmd {
         #[cfg(windows)]
         if !exact && !no_auto_exe && file_type_filter != FileType::Folder {
             for s in args.iter_mut() {
-                if !is_glob(&s) && !s.contains('.') {
+                if !is_glob(s) && !s.contains('.') {
                     *s += ".exe";
                 }
             }
@@ -165,7 +165,7 @@ impl Cmd {
             }
 
             let mut found = false;
-            let glob = match Pattern::new(&t) {
+            let glob = match Pattern::new(t) {
                 Ok(g) => g,
                 Err(_) => {
                     eprintln!("invalid glob pattern '{}'", &t);
@@ -216,7 +216,7 @@ impl Cmd {
         let mut map: HashMap<&String, bool> = HashMap::new();
 
         for s in &self.args {
-            map.insert(&s, false);
+            map.insert(s, false);
         }
 
         for p in paths {
@@ -277,11 +277,11 @@ impl Cmd {
                 continue;
             }
             map.insert(
-                &s,
+                s,
                 Target {
                     found: false,
                     is_glob: is_glob(&s[..]),
-                    glob: Pattern::new(&s).unwrap_or_else(|e| {
+                    glob: Pattern::new(s).unwrap_or_else(|e| {
                         eprintln!("{}: invalid glob pattern: {:?}", &s, e);
                         exit(2);
                     }),
