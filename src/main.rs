@@ -358,7 +358,7 @@ fn print_path(p: impl AsRef<Path>) {
         println!("{}", x);
     }
 }
-
+#[cfg(windows)]
 fn is_glob(s: &str) -> bool {
     for &c in s.as_bytes() {
         if c == b'*' || c == b'?' || c == b'[' {
