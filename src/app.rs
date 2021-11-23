@@ -67,10 +67,10 @@ impl Cmd {
 			.default_value("1");
 
 		let n = Arg::new("n")
-			.about("Show first N matches. 0 = all. Defaults to the number of arguments.")
+			.about("Show first N matches. 0 = all.")
 			.short('n')
 			.long("max")
-			.takes_value(true)
+			.default_value("1")
 			.validator(validate_usize);
 
 		let respect_case = Arg::new("respect-case")
@@ -143,10 +143,8 @@ impl Cmd {
 			.value_of("depth")
 			.map(|s| s.parse::<usize>().unwrap())
 			.filter(|n| *n != 0);
-		let n = m
-			.value_of("n")
-			.map(|s| s.parse::<usize>().unwrap())
-			.unwrap_or_else(|| args.len());
+		let n = m.value_of("n").unwrap().parse::<usize>().unwrap();
+
 		let hidden = m.is_present("hidden");
 		let exact = m.is_present("exact");
 

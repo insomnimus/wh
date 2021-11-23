@@ -1,5 +1,6 @@
 mod app;
 mod cmd;
+mod matcher;
 
 use app::Cmd;
 

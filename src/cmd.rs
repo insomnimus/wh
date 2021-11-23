@@ -3,18 +3,18 @@ use std::{
 	error::Error,
 };
 
-use globset::{
-	GlobBuilder,
-	GlobSetBuilder,
-};
+use globset::GlobBuilder;
 use ignore::{
 	DirEntry,
 	WalkBuilder,
 };
 
-use crate::app::{
-	Cmd,
-	FileType,
+use crate::{
+	app::{
+		Cmd,
+		FileType,
+	},
+	matcher::*,
 };
 
 impl FileType {
@@ -32,7 +32,14 @@ fn is_glob(s: &str) -> bool {
 }
 
 impl Cmd {
-	fn matches(&self, s: &str, e: &DirEntry) -> bool {
+	fn matches(&self, m: &Matcher<'_>, e: &DirEntry) -> bool {
+		match m {
+			Matcher::Str(s) => self.matches_str(s, e),
+			Matcher::Glob(g) => e.path().file_name().map_or(false, |name| g.is_match(name)),
+		}
+	}
+
+	fn matches_str(&self, s: &str, e: &DirEntry) -> bool {
 		macro_rules! eq {
 			($a:expr, $b:expr) => {
 				if self.respect_case {
@@ -58,25 +65,22 @@ impl Cmd {
 
 	pub fn run(&self) -> Result<(), Box<dyn Error>> {
 		let mut n_found = 0_usize;
-		let mut set = GlobSetBuilder::new();
-		let mut non_globs = Vec::new();
-
-		for s in &self.args {
-			if self.exact || !is_glob(s) {
-				non_globs.push(s.as_str());
-			} else {
-				set.add(
+		let mut matches = self
+			.args
+			.iter()
+			.map(|s| {
+				if self.exact || !is_glob(s) {
+					Ok(Matcher::Str(s.as_str()))
+				} else {
 					GlobBuilder::new(s)
 						.case_insensitive(!self.respect_case)
 						.literal_separator(true)
-						.build()?,
-				);
-			}
-		}
-
-		let mut found = vec![false; self.args.len()];
-		let set = set.build()?;
-		let mut buf = Vec::with_capacity(set.len());
+						.build()
+						.map(|g| Matcher::Glob(g.compile_matcher()))
+				}
+				.map(|matcher| MatchState { matcher, count: 0 })
+			})
+			.collect::<Result<Vec<_>, _>>()?;
 
 		let paths = env::var("PATH")
 			.map_err(|e| format!("could not read the $PATH environment variable: {}", e))?;
@@ -102,44 +106,26 @@ impl Cmd {
 			}
 			_ => None,
 		}) {
-			let name = match entry.path().file_name() {
-				Some(name) => name,
-				None => continue,
-			};
-			let mut this_found = false;
-			if !set.is_empty() {
-				set.matches_into(name, &mut buf);
-				for idx in &buf {
-					found[*idx] = true;
-				}
-				this_found = !buf.is_empty();
-			}
-
-			for (i, s) in non_globs.iter().enumerate() {
-				if self.matches(s, &entry) {
-					this_found = true;
-					found[i + set.len()] = true;
+			let mut this_matched = false;
+			for m in &mut matches {
+				if (self.n == 0 || m.count < self.n) && self.matches(&m.matcher, &entry) {
+					m.count += 1;
+					n_found += 1;
+					this_matched = true;
 				}
 			}
 
-			if this_found {
-				n_found += 1;
+			if this_matched {
 				println!("{}", entry.path().display());
-				if self.n != 0 && n_found >= self.n {
+				if self.n != 0 && n_found >= self.n * self.args.len() {
 					break;
 				}
 			}
 		}
 
-		if self.n == 0 || (n_found < self.n || !found.iter().all(|t| *t)) {
-			for s in found.into_iter().enumerate().filter_map(|(i, found)| {
-				if found {
-					None
-				} else {
-					self.args.get(i)
-				}
-			}) {
-				eprintln!("{}: not found in $PATH", s);
+		for m in &matches {
+			if m.count == 0 {
+				eprintln!("{}: not found under $PATH", &m.matcher);
 			}
 		}
 
