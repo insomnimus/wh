@@ -80,7 +80,7 @@ impl Cmd {
 
 		let no_auto_ext = Arg::new("no-auto-ext")
 			.about("Do not add missing extension for files from $PATHEXT.")
-			.short('E')
+			.short('X')
 			.long("no-auto-ext");
 
 		let verbose = Arg::new("verbose")
