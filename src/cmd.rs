@@ -90,7 +90,7 @@ impl Cmd {
 		let walker = walker
 			.standard_filters(false)
 			.hidden(self.hidden)
-			.follow_links(false)
+			.follow_links(true)
 			.max_depth(self.depth)
 			.build();
 
