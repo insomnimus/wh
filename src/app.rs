@@ -5,6 +5,15 @@ use clap::{
 	ArgSettings,
 };
 
+#[cfg(windows)]
+const EXT_ABOUT: &str = "A ';' separated list of file extensions to add if a file is not given an extension and there is no match.";
+#[cfg(windows)]
+const PATH_DELIMITER: char = ';';
+#[cfg(not(windows))]
+const EXT_ABOUT: &str = "A ':' separated list of file extensions to add if a file is not given an extension and there is no match.";
+#[cfg(not(windows))]
+const PATH_DELIMITER: char = ':';
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum FileType {
 	File,
@@ -27,8 +36,8 @@ pub struct Cmd {
 	pub hidden: bool,
 	pub quiet: bool,
 	pub args: Vec<String>,
-	#[cfg(windows)]
 	pub no_auto_ext: bool,
+	pub pathext: Vec<String>,
 }
 
 impl Cmd {
@@ -42,7 +51,7 @@ impl Cmd {
 			.short('t')
 			.long("type")
 			.default_value("file")
-			.possible_values(&["f", "d", "a", "file", "dir", "directory", "any"])
+			.possible_values(&["f", "d", "a", "file", "dir", "any"])
 			.setting(ArgSettings::IgnoreCase);
 
 		let exact = Arg::new("exact")
@@ -69,7 +78,6 @@ impl Cmd {
 			.short('c')
 			.long("respect-case");
 
-		#[cfg(windows)]
 		let no_auto_ext = Arg::new("no-auto-ext")
 			.about("Do not add missing extension for files from $PATHEXT.")
 			.short('E')
@@ -91,19 +99,25 @@ impl Cmd {
 			.short('a')
 			.long("all");
 
-		let app = app
-			.arg(file_type)
+		let ext = Arg::new("ext")
+			.about(EXT_ABOUT)
+			.short('x')
+			.long("ext")
+			.alias("extension")
+			.env("PATHEXT")
+			.hide_env_values(true)
+			.value_delimiter(PATH_DELIMITER);
+
+		app.arg(file_type)
 			.arg(respect_case)
 			.arg(depth)
 			.arg(n)
 			.arg(verbose)
+			.arg(ext)
 			.arg(exact)
-			.arg(hidden);
-
-		#[cfg(windows)]
-		let app = app.arg(no_auto_ext);
-
-		app.arg(args)
+			.arg(hidden)
+			.arg(no_auto_ext)
+			.arg(args)
 	}
 
 	pub fn from_args() -> Self {
@@ -112,9 +126,16 @@ impl Cmd {
 		let args: Vec<_> = m.values_of("args").unwrap().map(String::from).collect();
 		let file_type = match &m.value_of("type").unwrap().to_lowercase()[..] {
 			"f" | "file" => FileType::File,
-			"d" | "dir" | "directory" => FileType::Directory,
+			"d" | "dir" => FileType::Directory,
 			_ => FileType::Any,
 		};
+		let pathext: Vec<_> = m
+			.values_of("ext")
+			.map(|it| {
+				it.map(|s| s.strip_prefix('.').unwrap_or(s).to_string())
+					.collect()
+			})
+			.unwrap_or_default();
 
 		let quiet = !m.is_present("verbose");
 		let respect_case = m.is_present("respect-case");
@@ -129,19 +150,18 @@ impl Cmd {
 		let hidden = m.is_present("hidden");
 		let exact = m.is_present("exact");
 
-		#[cfg(windows)]
 		let no_auto_ext = m.is_present("no-auto-ext");
 
 		Self {
 			hidden,
 			exact,
+			pathext,
 			n,
 			quiet,
 			respect_case,
 			depth,
 			args,
 			file_type,
-			#[cfg(windows)]
 			no_auto_ext,
 		}
 	}

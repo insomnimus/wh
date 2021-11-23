@@ -3,7 +3,7 @@
 A `which` replacement.
 
 # Features
--	On Windows, automatically appends any extension from `$PATHEXT` if none is provided and match is a file.
+-	Check for missing extensions if none is given and the match is a file. The values are retreived from the `$PATHEXT` env variable, which is set by default on Windows and contains extensions like `.exe` and `.bat`.
 -	Full globbing support.
 -	Can recursively search directories under `$PATH` if desired.
 -	Can limit search to plain files, directories or both.

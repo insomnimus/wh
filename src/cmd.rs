@@ -27,14 +27,12 @@ impl FileType {
 	}
 }
 
-#[cfg(windows)]
 fn is_glob(s: &str) -> bool {
 	s.contains(|c| c == '*' || c == '?') || (s.contains('{') && s.contains('}'))
 }
 
 impl Cmd {
-	#[cfg(windows)]
-	fn matches(&self, s: &str, e: &DirEntry, pathext: &[&str]) -> bool {
+	fn matches(&self, s: &str, e: &DirEntry) -> bool {
 		macro_rules! eq {
 			($a:expr, $b:expr) => {
 				if self.respect_case {
@@ -52,28 +50,18 @@ impl Cmd {
 			e.path().file_name().map_or(false, |name| eq!(name, s))
 		} else {
 			e.path().file_stem().map_or(false, |stem| eq!(stem, s))
-				&& e.path()
-					.extension()
-					.map_or(true, |ext| pathext.iter().any(|x| eq!(ext, *x)))
+				&& e.path().extension().map_or(true, |ext| {
+					self.pathext.iter().any(|x| eq!(ext, x.as_str()))
+				})
 		}
 	}
 
 	pub fn run(&self) -> Result<(), Box<dyn Error>> {
 		let mut n_found = 0_usize;
 		let mut set = GlobSetBuilder::new();
-		#[cfg(windows)]
 		let mut non_globs = Vec::new();
 
 		for s in &self.args {
-			#[cfg(not(windows))]
-			set.add(
-				GlobBuilder::new(s)
-					.case_insensitive(!self.respect_case)
-					.literal_separator(true)
-					.build()?,
-			);
-
-			#[cfg(windows)]
 			if self.exact || !is_glob(s) {
 				non_globs.push(s.as_str());
 			} else {
@@ -93,13 +81,6 @@ impl Cmd {
 		let paths = env::var("PATH")
 			.map_err(|e| format!("could not read the $PATH environment variable: {}", e))?;
 		let paths = env::split_paths(&paths).collect::<Vec<_>>();
-		#[cfg(windows)]
-		let pathext = env::var("PATHEXT").unwrap_or_else(|_| String::from(".exe"));
-		#[cfg(windows)]
-		let pathext = pathext
-			.split(';')
-			.filter_map(|s| s.strip_prefix('.'))
-			.collect::<Vec<_>>();
 
 		let mut walker = WalkBuilder::new(&paths[0]);
 		for p in &paths[1..] {
@@ -134,9 +115,8 @@ impl Cmd {
 				this_found = !buf.is_empty();
 			}
 
-			#[cfg(windows)]
 			for (i, s) in non_globs.iter().enumerate() {
-				if self.matches(s, &entry, &pathext) {
+				if self.matches(s, &entry) {
 					this_found = true;
 					found[i + set.len()] = true;
 				}
