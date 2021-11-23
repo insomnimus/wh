@@ -1,96 +1,148 @@
-use clap::{crate_version, App, AppSettings, Arg};
+use clap::{
+	crate_version,
+	App,
+	Arg,
+	ArgSettings,
+};
 
-pub fn new() -> App<'static> {
-    let app = App::new("wh")
-        .version(crate_version!())
-        .about("find files")
-        .long_about("find files under $PATH or search under a directory")
-        .setting(AppSettings::UnifiedHelpMessage)
-        .help_template(
-            "wh, {about}
-usage:
-{bin} [OPTIONS] <PATTERN...>
+#[derive(Copy, Clone, PartialEq)]
+pub enum FileType {
+	File,
+	Directory,
+	Any,
+}
 
-{unified}
-	{after-help}
-",
-        )
-        .after_long_help("the default behaviour is to look under $PATH");
+fn validate_usize(s: &str) -> Result<(), String> {
+	s.parse::<usize>()
+		.map(|_| {})
+		.map_err(|_| String::from("the value must be a non-negative integer"))
+}
 
-    let no_check = Arg::new("no-check")
-        .long("no-check")
-        .short('n')
-        .about("do not ignore patterns containing only '*'")
-        .conflicts_with("exact");
+pub struct Cmd {
+	pub file_type: FileType,
+	pub exact: bool,
+	pub n: usize,
+	pub respect_case: bool,
+	pub depth: Option<usize>,
+	pub hidden: bool,
+	pub quiet: bool,
+	pub args: Vec<String>,
+	#[cfg(windows)]
+	pub no_auto_ext: bool,
+}
 
-    let file_type_filter = Arg::new("type")
-        .short('t')
-        .long("type")
-        .takes_value(true)
-        .possible_values(&["any", "file", "folder"])
-        .about("filter the search by file type");
+impl Cmd {
+	fn app() -> App<'static> {
+		let app = App::new("wh")
+			.about("Find files under $PATH")
+			.version(crate_version!());
 
-    let all = Arg::new("all")
-        .long("all")
-        .short('a')
-        .about("do not stop after the first result, print them all")
-        .takes_value(false);
+		let file_type = Arg::new("type")
+			.about("The file type to look for.")
+			.short('t')
+			.long("type")
+			.default_value("file")
+			.possible_values(&["f", "d", "a", "file", "dir", "directory", "any"])
+			.setting(ArgSettings::IgnoreCase);
 
-    let exact = Arg::new("exact")
-        .short('e')
-        .long("exact")
-        .takes_value(false);
+		let exact = Arg::new("exact")
+			.about("Do not treat any argument as a glob pattern.")
+			.short('e')
+			.long("exact");
 
-    #[cfg(windows)]
-    let exact = exact.about("do not interpret glob patterns and do not append missing .exe");
-    #[cfg(not(windows))]
-    let exact = exact.about("do not interprete glob patterns");
+		let depth = Arg::new("depth")
+			.about("The recursion depth. 0 = no limit.")
+			.short('d')
+			.long("depth")
+			.validator(validate_usize)
+			.default_value("1");
 
-    let recursive = Arg::new("recursive")
-        .short('r')
-        .long("recursive")
-        .about("search $PATH recursively")
-        .conflicts_with("find-under")
-        .takes_value(false);
+		let n = Arg::new("n")
+			.about("Show first N matches. 0 = all. Defaults to the number of arguments.")
+			.short('n')
+			.long("max")
+			.takes_value(true)
+			.validator(validate_usize);
 
-    let find_under = Arg::new("find-under")
-        .short('f')
-        .long("find-under")
-        .about("recursively search under a directory ")
-        .multiple(true)
-        .takes_value(true);
+		let respect_case = Arg::new("respect-case")
+			.about("Do not ignore case.")
+			.short('c')
+			.long("respect-case");
 
-    #[cfg(windows)]
-    let no_auto_exe = Arg::new("no-auto-exe")
-        .about("do not append missing .exe extension")
-        .short('N')
-        .long("no-auto-exe")
-        .takes_value(false);
+		#[cfg(windows)]
+		let no_auto_ext = Arg::new("no-auto-ext")
+			.about("Do not add missing extension for files from $PATHEXT.")
+			.short('E')
+			.long("no-auto-ext");
 
-    let args = Arg::new("target")
-        .takes_value(false)
-        .multiple(true)
-        .about("file or glob pattern to search for")
-        .required(true);
+		let verbose = Arg::new("verbose")
+			.about("Report errors.")
+			.short('v')
+			.long("verbose");
 
-    let hidden = Arg::new("hidden")
-        .short('d')
-        .long("hidden")
-        .about("do not ignore hidden directories")
-        .takes_value(false);
+		let args = Arg::new("args")
+			.about("The file name or glob pattern to search for.")
+			.required(true)
+			.value_name("query")
+			.setting(ArgSettings::MultipleValues);
 
-    let app = app
-        .arg(all)
-        .arg(exact)
-        .arg(no_check)
-        .arg(hidden)
-        .arg(recursive)
-        .arg(file_type_filter)
-        .arg(find_under)
-        .arg(args);
+		let hidden = Arg::new("hidden")
+			.about("Do not ignore hidden directories.")
+			.short('a')
+			.long("all");
 
-    #[cfg(windows)]
-    return app.arg(no_auto_exe);
-    #[cfg(not(windows))]
-    return app;
+		let app = app
+			.arg(file_type)
+			.arg(respect_case)
+			.arg(depth)
+			.arg(n)
+			.arg(verbose)
+			.arg(exact)
+			.arg(hidden);
+
+		#[cfg(windows)]
+		let app = app.arg(no_auto_ext);
+
+		app.arg(args)
+	}
+
+	pub fn from_args() -> Self {
+		let m = Self::app().get_matches();
+
+		let args: Vec<_> = m.values_of("args").unwrap().map(String::from).collect();
+		let file_type = match &m.value_of("type").unwrap().to_lowercase()[..] {
+			"f" | "file" => FileType::File,
+			"d" | "dir" | "directory" => FileType::Directory,
+			_ => FileType::Any,
+		};
+
+		let quiet = !m.is_present("verbose");
+		let respect_case = m.is_present("respect-case");
+		let depth = m
+			.value_of("depth")
+			.map(|s| s.parse::<usize>().unwrap())
+			.filter(|n| *n != 0);
+		let n = m
+			.value_of("n")
+			.map(|s| s.parse::<usize>().unwrap())
+			.unwrap_or_else(|| args.len());
+		let hidden = m.is_present("hidden");
+		let exact = m.is_present("exact");
+
+		#[cfg(windows)]
+		let no_auto_ext = m.is_present("no-auto-ext");
+
+		Self {
+			hidden,
+			exact,
+			n,
+			quiet,
+			respect_case,
+			depth,
+			args,
+			file_type,
+			#[cfg(windows)]
+			no_auto_ext,
+		}
+	}
 }
