@@ -99,7 +99,9 @@ impl Cmd {
 			.build();
 
 		for entry in walker.filter_map(|res| match res {
-			Ok(entry) if self.file_type.is_match(&entry) => Some(entry),
+			Ok(entry) if self.file_type.is_match(&entry) && entry.path().file_name().is_some() => {
+				Some(entry)
+			}
 			Err(e) if !self.quiet => {
 				eprintln!("error: {}", e);
 				None
