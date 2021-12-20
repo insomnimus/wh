@@ -1,4 +1,5 @@
 use clap::{
+	arg,
 	crate_version,
 	App,
 	Arg,
@@ -42,82 +43,42 @@ pub struct Cmd {
 
 impl Cmd {
 	fn app() -> App<'static> {
-		let app = App::new("wh")
+		App::new("wh")
 			.about("Find files under $PATH")
-			.version(crate_version!());
-
-		let file_type = Arg::new("type")
-			.about("The file type to look for.")
-			.short('t')
-			.long("type")
-			.default_value("file")
-			.possible_values(&["f", "d", "a", "file", "dir", "any"])
-			.setting(ArgSettings::IgnoreCase);
-
-		let exact = Arg::new("exact")
-			.about("Do not treat any argument as a glob pattern.")
-			.short('e')
-			.long("exact");
-
-		let depth = Arg::new("depth")
-			.about("The recursion depth. 0 = no limit.")
-			.short('d')
-			.long("depth")
-			.validator(validate_usize)
-			.default_value("1");
-
-		let n = Arg::new("n")
-			.about("Show first N matches. 0 = all.")
-			.short('n')
-			.long("max")
-			.default_value("1")
-			.validator(validate_usize);
-
-		let respect_case = Arg::new("respect-case")
-			.about("Do not ignore case.")
-			.short('c')
-			.long("respect-case");
-
-		let no_auto_ext = Arg::new("no-auto-ext")
-			.about("Do not add missing extension for files from $PATHEXT.")
-			.short('X')
-			.long("no-auto-ext");
-
-		let verbose = Arg::new("verbose")
-			.about("Report errors.")
-			.short('v')
-			.long("verbose");
-
-		let args = Arg::new("args")
-			.about("The file name or glob pattern to search for.")
-			.required(true)
-			.value_name("query")
-			.setting(ArgSettings::MultipleValues);
-
-		let hidden = Arg::new("hidden")
-			.about("Do not ignore hidden directories.")
-			.short('a')
-			.long("all");
-
-		let ext = Arg::new("ext")
-			.about(EXT_ABOUT)
-			.short('x')
-			.long("ext")
-			.alias("extension")
-			.env("PATHEXT")
-			.hide_env_values(true)
-			.value_delimiter(PATH_DELIMITER);
-
-		app.arg(file_type)
-			.arg(respect_case)
-			.arg(depth)
-			.arg(n)
-			.arg(verbose)
-			.arg(ext)
-			.arg(exact)
-			.arg(hidden)
-			.arg(no_auto_ext)
-			.arg(args)
+			.version(crate_version!())
+			.args(&[
+				Arg::new("type")
+					.help("The file type to look for.")
+					.short('t')
+					.long("type")
+					.default_value("file")
+					.possible_values(&["f", "d", "a", "file", "dir", "any"])
+					.setting(ArgSettings::IgnoreCase),
+				arg!(-e --exact "Do not treat any argument as a glob pattern."),
+				arg!(-d --depth <DEPTH> "The search depth. 0 Means no limit.")
+					.validator(validate_usize)
+					.default_value("1"),
+				arg!(n: -n <N> "Show first N results. 0 = show all.")
+					.default_value("1")
+					.validator(validate_usize),
+				arg!(-c --respect-case "Do a case sensitive search."),
+				arg!(-X --no-auto-ext "Do not try to match the values from PATH_EXT."),
+				arg!(-v --verbose "Report errors."),
+				arg!(-a --hidden "Do not ignore hidden directories when recursing."),
+				Arg::new("ext")
+					.help(EXT_ABOUT)
+					.short('x')
+					.long("ext")
+					.alias("extension")
+					.env("PATHEXT")
+					.hide_env_values(true)
+					.value_delimiter(PATH_DELIMITER),
+				Arg::new("args")
+					.help("Name/glob pattern to search for.")
+					.required(true)
+					.multiple_values(true)
+					.value_name("NAME OR GLOB"),
+			])
 	}
 
 	pub fn from_args() -> Self {

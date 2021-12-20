@@ -56,10 +56,11 @@ impl Cmd {
 		{
 			e.path().file_name().map_or(false, |name| eq!(name, s))
 		} else {
-			e.path().file_stem().map_or(false, |stem| eq!(stem, s))
-				&& e.path().extension().map_or(true, |ext| {
-					self.pathext.iter().any(|x| eq!(ext, x.as_str()))
-				})
+			e.path().file_name().map_or(false, |p| eq!(p, s))
+				|| (e.path().file_stem().map_or(false, |stem| eq!(stem, s))
+					&& e.path().extension().map_or(true, |ext| {
+						self.pathext.iter().any(|x| eq!(ext, x.as_str()))
+					}))
 		}
 	}
 
