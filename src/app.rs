@@ -115,7 +115,7 @@ impl Cmd {
 		let hidden = m.is_present("hidden");
 		let exact = m.is_present("exact");
 
-		let no_auto_ext = m.is_present("no-auto-ext");
+		let no_auto_ext = m.is_present("no-ext");
 
 		Self {
 			hidden,
