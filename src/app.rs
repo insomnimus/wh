@@ -58,11 +58,17 @@ impl Cmd {
 				arg!(-d --depth <DEPTH> "The search depth. 0 Means no limit.")
 					.validator(validate_usize)
 					.default_value("1"),
-				arg!(n: -n <N> "Show first N results. 0 = show all.")
+				arg!(n: -n [N] "Show first N results. 0 = show all.")
 					.default_value("1")
 					.validator(validate_usize),
-				arg!(-c --respect-case "Do a case sensitive search."),
-				arg!(-X --no-auto-ext "Do not try to match the values from PATH_EXT."),
+				Arg::new("respect-case")
+					.short('c')
+					.long("respect-case")
+					.help("Do a case sensitive search."),
+				Arg::new("no-ext")
+					.short('X')
+					.long("no-ext")
+					.help("Do not try to match extensions from $PATH_EXT."),
 				arg!(-v --verbose "Report errors."),
 				arg!(-a --hidden "Do not ignore hidden directories when recursing."),
 				Arg::new("ext")
