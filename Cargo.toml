@@ -1,25 +1,30 @@
 [package]
 name = "wh"
-version = "1.6.8"
-authors = ["insomnimus <insomnimus19@gmail.com>"]
-edition = "2018"
+description = "An extended alternative to GNU which"
+version = "2.0.0"
+authors = ["Taylan Gökkaya"]
 include = [
-"src/*",
-"Cargo.toml",
-"readme.md",
-"LICENSE",
+	"src/*",
+	"Cargo.toml",
+	"Cargo.lock",
+	"readme.md",
+	"LICENSE",
 ]
-description= "A 'which' tool replacement."
+edition = "2021"
 repository = "https://github.com/insomnimus/wh"
 keywords= ["cli", "tool"]
 license= "MIT"
 readme= "readme.md"
 
-[[bin]]
-name = "wh"
-path = "src/main.rs"
+[profile.release]
+lto = "thin"
+panic = "abort"
 
 [dependencies]
-globset = "0.4.8"
-ignore = "0.4.18"
-clap = { version = "3.0.0", features = ["cargo", "env", "unicode", "wrap_help"] }
+clap = { version = "4.2.4", features = ["derive"] }
+globset = "0.4.10"
+home = "0.5.4"
+
+[target.'cfg(not(windows))'.dependencies]
+atty = "0.2.14"
+nom = "7.1.3"
