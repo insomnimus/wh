@@ -28,24 +28,11 @@
       "steps": [
         {
           "name": "Setup | Checkout",
-          "uses": "actions/checkout@v2"
-        },
-        {
-          "name": "Setup | Rust",
-          "uses": "actions-rs/toolchain@v1.0.7",
-          "with": {
-            "toolchain": "stable",
-            "override": true,
-            "target": "${{ matrix.target }}"
-          }
+          "uses": "actions/checkout@v3"
         },
         {
           "name": "Check | Tests",
-          "uses": "actions-rs/cargo@v1.0.3",
-          "with": {
-            "command": "test",
-            "args": "--target ${{ matrix.target }} --features 'fluid-bundled system'"
-          }
+          "run": "cargo test --target ${{ matrix.target }}"
         }
       ]
     },
@@ -116,12 +103,12 @@
             {
               "target": "x86_64-apple-darwin",
               "name": "wh-x86_64-apple-darwin.tar.gz",
-              "os": "macos-11"
+              "os": "macos-latest"
             },
             {
               "target": "aarch64-apple-darwin",
               "name": "wh-aarch64-apple-darwin.tar.gz",
-              "os": "macos-11"
+              "os": "macos-latest"
             },
             {
               "target": "x86_64-unknown-freebsd",
@@ -140,34 +127,35 @@
       "steps": [
         {
           "name": "Setup | Checkout",
-          "uses": "actions/checkout@v2"
+          "uses": "actions/checkout@v3"
         },
         {
           "name": "Setup | Cache Cargo",
-          "uses": "actions/cache@v2.1.6",
+          "uses": "actions/cache@v3",
           "with": {
             "path": "~/.cargo/registry\n~/.cargo/git\n",
             "key": "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
           }
         },
         {
-          "name": "Setup | Rust",
-          "uses": "actions-rs/toolchain@v1.0.7",
-          "with": {
-            "toolchain": "stable",
-            "override": true,
-            "profile": "minimal",
-            "target": "${{ matrix.target }}"
-          }
+          "name": "Setup | rustup native",
+          "if": "matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
+          "run": "rustup default nightly\nrustup component add rust-src"
         },
         {
-          "name": "Build | Build",
-          "uses": "actions-rs/cargo@v1.0.3",
-          "with": {
-            "command": "rustc",
-            "args": "--release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static",
-            "use-cross": "${{ matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-unknown-linux-gnu' }}"
-          }
+          "name": "Setup | rustup and cross",
+          "if": "matrix.target != 'x86_64-pc-windows-msvc' && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "run": "rustup default nightly\ncargo install cross"
+        },
+        {
+          "name": "Build | Native",
+          "if": "matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
+          "run": "cargo rustc --release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static"
+        },
+        {
+          "name": "Build | Cross",
+          "if": "matrix.target != 'x86_64-pc-windows-msvc' && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "run": "cross rustc --release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static"
         },
         {
           "name": "PostBuild | Prepare",
@@ -181,7 +169,7 @@
         },
         {
           "name": "Deploy | Upload Artifacts",
-          "uses": "actions/upload-artifact@v2",
+          "uses": "actions/upload-artifact@v3",
           "with": {
             "name": "${{ matrix.name }}",
             "path": "${{ matrix.name }}"
@@ -197,21 +185,21 @@
       "steps": [
         {
           "name": "Setup | Checkout",
-          "uses": "actions/checkout@v2.3.4",
+          "uses": "actions/checkout@v3",
           "with": {
             "fetch-depth": 0
           }
         },
         {
           "name": "Setup | go",
-          "uses": "actions/setup-go@v2",
+          "uses": "actions/setup-go@v4",
           "with": {
             "go-version": "^1.15.7"
           }
         },
         {
           "name": "Setup | Artifacts",
-          "uses": "actions/download-artifact@v2"
+          "uses": "actions/download-artifact@v3"
         },
         {
           "name": "Setup | Release notes",
