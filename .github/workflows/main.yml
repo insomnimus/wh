@@ -139,23 +139,23 @@
         },
         {
           "name": "Setup | rustup native",
-          "if": "matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
-          "run": "rustup default nightly\nrustup component add rust-src"
+          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
+          "run": "rustup default nightly-${{ matrix.target }}\nrustup component add rust-src"
         },
         {
           "name": "Setup | rustup and cross",
-          "if": "matrix.target != 'x86_64-pc-windows-msvc' && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
           "run": "rustup default nightly\ncargo install cross"
         },
         {
           "name": "Build | Native",
-          "if": "matrix.target == 'x86_64-pc-windows-msvc' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
+          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
           "run": "cargo rustc --release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static"
         },
         {
           "name": "Build | Cross",
-          "if": "matrix.target != 'x86_64-pc-windows-msvc' && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
-          "run": "cross rustc --release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static"
+          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "run": "cross rustc --release --target ${{ matrix.target }} -- -Ctarget-feature=+crt-static"
         },
         {
           "name": "PostBuild | Prepare",
