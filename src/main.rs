@@ -131,7 +131,19 @@ impl PathEntry {
 }
 
 fn main() {
-	let app = App::parse();
+	let mut app = App::parse();
+	if app.show_tilde {
+		#[cfg(not(windows))]
+		{
+			app.show_tilde = &whoami::username() != "root";
+		}
+
+		#[cfg(windows)]
+		unsafe {
+			app.show_tilde = !windows::Win32::UI::Shell::IsUserAnAdmin().as_bool();
+		}
+	}
+
 	for c in &app.commands {
 		if (cfg!(windows) && c.contains(|c: char| c == '\\' || c == '/'))
 			|| (cfg!(not(windows)) && c.contains('/'))
