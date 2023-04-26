@@ -56,18 +56,13 @@
               "os": "windows-latest"
             },
             {
-              "target": "aarch64-pc-windows-msvc",
-              "name": "wh-aarch64-pc-windows-msvc.zip",
-              "os": "windows-latest"
-            },
-            {
               "target": "x86_64-unknown-linux-gnu",
               "name": "wh-x86_64-unknown-linux-gnu.tar.gz",
               "os": "ubuntu-latest"
             },
             {
-              "target": "aarch64-unknown-linux-gnu",
-              "name": "wh-aarch64-unknown-linux-gnu.tar.gz",
+              "target": "aarch64-unknown-linux-musl",
+              "name": "wh-aarch64-unknown-linux-musl.tar.gz",
               "os": "ubuntu-latest"
             },
             {
@@ -106,11 +101,6 @@
               "os": "macos-latest"
             },
             {
-              "target": "aarch64-apple-darwin",
-              "name": "wh-aarch64-apple-darwin.tar.gz",
-              "os": "macos-latest"
-            },
-            {
               "target": "x86_64-unknown-freebsd",
               "name": "wh-x86_64-unknown-freebsd.tar.gz",
               "os": "ubuntu-latest"
@@ -139,22 +129,22 @@
         },
         {
           "name": "Setup | rustup native",
-          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
+          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || contains(matrix.target, 'apple')",
           "run": "rustup default nightly-${{ matrix.target }}\nrustup component add rust-src"
         },
         {
           "name": "Setup | rustup and cross",
-          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && !contains(matrix.target, 'apple')",
           "run": "rustup default nightly\ncargo install cross"
         },
         {
           "name": "Build | Native",
-          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-apple-darwin'",
-          "run": "cargo rustc --release --target ${{ matrix.target }} -Z 'build-std=std,panic_abort' -- -Ctarget-feature=+crt-static"
+          "if": "contains(matrix.target, 'windows')  || matrix.target == 'x86_64-unknown-linux-gnu' || contains(matrix.target, 'apple')",
+          "run": "cargo rustc --release --target ${{ matrix.target }} -- -Ctarget-feature=+crt-static"
         },
         {
           "name": "Build | Cross",
-          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-apple-darwin'",
+          "if": "!contains(matrix.target, 'windows') && matrix.target != 'x86_64-unknown-linux-gnu' && !contains(matrix.target, 'apple')",
           "run": "cross rustc --release --target ${{ matrix.target }} -- -Ctarget-feature=+crt-static"
         },
         {
