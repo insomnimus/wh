@@ -141,23 +141,23 @@ fn parse_function(input: &str) -> IResult<&str, (&str, &str)> {
 fn until_alone_rbrace(input: &str) -> IResult<&str, &str> {
 	let mut i = 0;
 	while let Some(idx) = input[i..].find("\n}") {
-		let remaining = &input[idx + 2..];
+		let remaining = &input[i + idx + 2..];
 		match remaining.split_once('\n') {
 			Some((ln, rest)) => {
 				if ln.trim().is_empty() {
-					return Ok((rest, &input[..idx]));
+					return Ok((rest, &input[..i + idx]));
 				}
 			}
 			None => {
 				if remaining.trim_start().is_empty() {
-					return Ok(("", &input[..idx]));
+					return Ok(("", &input[..i + idx]));
 				} else {
 					return err!();
 				}
 			}
 		}
 
-		i = idx + 2;
+		i += idx + 2;
 	}
 
 	err!()
@@ -183,5 +183,6 @@ pub fn parse(input: &str) -> Vec<Item> {
 		)),
 	)
 	.flatten()
+	// .inspect(|x| println!("{x}"))
 	.collect()
 }
