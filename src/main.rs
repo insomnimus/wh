@@ -29,18 +29,18 @@ struct App {
 	skip_dot: bool,
 
 	/// Skip directories in PATH that start with a tilde and executables which
-	/// reside in the HOME directory
+	/// reside in the HOME directory.
 	#[arg(long)]
 	skip_tilde: bool,
 
 	/// If a directory in PATH starts with a dot and a matching executable was
 	/// found for that path, then print "./programname" rather than the full
-	/// path
+	/// path.
 	#[arg(long)]
 	show_dot: bool,
 
 	/// Output a tilde when a directory matches the HOME directory. This option
-	/// is ignored when wh is invoked as root (admin on Windows)
+	/// is ignored when wh is invoked as root (admin on Windows).
 	#[arg(long)]
 	show_tilde: bool,
 

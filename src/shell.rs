@@ -1,3 +1,8 @@
+//! Parses the output of running `(alias; declare -f) on Bash.
+//!
+//! This is a pretty naive implementation but it should be enough for the use
+//! case.
+
 use std::fmt::{self,};
 
 use nom::{
@@ -103,25 +108,13 @@ fn terminated_word(until: char) -> impl Fn(&str) -> IResult<&str, &str> {
 }
 
 fn consume_line(input: &str) -> IResult<&str, &str> {
-	match input.split_once('\n') {
-		None if input.is_empty() => err!(),
-		None => Ok(("", input)),
-		Some(("", _)) => err!(),
-		Some((val, rest)) => Ok((rest, val)),
+	if let Some(i) = input.find('\n') {
+		return Ok((&input[i + 1..], &input[..i + 1]));
 	}
-}
-
-fn ignore_line(input: &str) -> IResult<&str, ()> {
-	for (i, c) in input.char_indices() {
-		if c == '\n' {
-			return Ok((&input[i + 1..], ()));
-		}
-	}
-
 	if input.is_empty() {
 		err!()
 	} else {
-		Ok(("", ()))
+		Ok(("", input))
 	}
 }
 
@@ -132,63 +125,61 @@ fn parse_alias(input: &str) -> IResult<&str, (&str, &str)> {
 	)(input)
 }
 
-fn indented(input: &str) -> IResult<&str, &str> {
-	let mut i = 0;
-	for l in input.split('\n') {
-		if !l.is_empty() && !l.starts_with(|c: char| c.is_whitespace()) {
-			if i == 0 {
-				return err!();
-			}
-			return Ok((&input[i..], &input[..i]));
-		}
-		i += 1 + l.len();
-	}
-
-	if i == 0 {
-		err!()
-	} else {
-		Ok((&input[i..], &input[..i]))
-	}
-}
-
 fn parse_function(input: &str) -> IResult<&str, (&str, &str)> {
-	let not_allowed = r#"\s\t\n\r\v\0 \\'`"(){}[]<>#$;*?&/\\"#;
-
+	let not_allowed = "<>[]{}()\t\r\n\0 \\*?$~;#`'\"";
 	tuple((
 		opt(tuple((tag("function"), space1))),
 		is_not(not_allowed),
-		tuple((
-			space0,
-			tag("()"),
-			multispace0,
-			tag("{"),
-			space0,
-			is_a("\r\n"),
-		)),
-		indented,
-		tag("}"),
+		tuple((space0, tag("()"), multispace0, tag("{"), space0, is_a("\n"))),
+		until_alone_rbrace,
+		// tag("}"),
 	))
 	.map(|t| (t.1, t.3))
 	.parse(input)
+}
+
+fn until_alone_rbrace(input: &str) -> IResult<&str, &str> {
+	let mut i = 0;
+	while let Some(idx) = input[i..].find("\n}") {
+		let remaining = &input[idx + 2..];
+		match remaining.split_once('\n') {
+			Some((ln, rest)) => {
+				if ln.trim().is_empty() {
+					return Ok((rest, &input[..idx]));
+				}
+			}
+			None => {
+				if remaining.trim_start().is_empty() {
+					return Ok(("", &input[..idx]));
+				} else {
+					return err!();
+				}
+			}
+		}
+
+		i = idx + 2;
+	}
+
+	err!()
 }
 
 pub fn parse(input: &str) -> Vec<Item> {
 	iterator(
 		input,
 		alt((
-			map(parse_alias, |(lhs, rhs)| {
-				Some(Item::Alias(Alias {
-					lhs,
-					rhs: rhs.trim_end(),
-				}))
-			}),
 			map(parse_function, |(name, body)| {
 				Some(Item::Function(Function {
 					name,
 					body: body.trim_matches('\n'),
 				}))
 			}),
-			map(ignore_line, |_| None),
+			map(parse_alias, |(lhs, rhs)| {
+				Some(Item::Alias(Alias {
+					lhs,
+					rhs: rhs.trim_end(),
+				}))
+			}),
+			map(consume_line, |_| None),
 		)),
 	)
 	.flatten()
