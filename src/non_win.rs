@@ -57,13 +57,11 @@ enum Item<'a> {
 	Function(Function<'a>),
 }
 
-fn new_glob(s: &str) -> (GlobMatcher, bool) {
-	let mut is_glob = true;
-	let m = GlobBuilder::new(s)
+fn new_glob(s: &str) -> GlobMatcher {
+	GlobBuilder::new(s)
 		.backslash_escape(true)
 		.build()
 		.unwrap_or_else(|_| {
-			is_glob = false;
 			let mut escaped = String::with_capacity(128);
 			for c in s.chars() {
 				if matches!(c, '\\' | '[' | ']' | '{' | '}') {
@@ -80,12 +78,7 @@ fn new_glob(s: &str) -> (GlobMatcher, bool) {
 					std::process::exit(1);
 				})
 		})
-		.compile_matcher();
-
-	(
-		m,
-		is_glob && s.contains(|c: char| matches!(c, '*' | '?' | '[' | '{')),
-	)
+		.compile_matcher()
 }
 
 fn is_executable(p: &Path) -> bool {
@@ -170,7 +163,7 @@ impl App {
 		let mut not_found = 0;
 		let mut stdout = io::stdout().lock();
 		'outer: for c in &self.commands {
-			let (glob, is_glob) = new_glob(c);
+			let glob = new_glob(c);
 			let mut found = false;
 
 			for i in &mut items {
@@ -196,7 +189,7 @@ impl App {
 								self.write_path(&mut stdout, home.as_deref(), pwd.as_deref(), file);
 								yes = true;
 								found = true;
-								if !is_glob {
+								if !self.all {
 									break;
 								}
 							}
