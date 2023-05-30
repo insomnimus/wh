@@ -74,67 +74,67 @@
               "native": true
             },
             {
-              "name": "wh-x86_64-unknown-linux-musl.tar.gz",
+              "name": "wh-x86_64-unknown-linux-musl.tar.xz",
               "target": "x86_64-unknown-linux-musl",
               "os": "ubuntu-latest",
               "native": true
             },
             {
-              "name": "wh-i686-unknown-linux-musl.tar.gz",
+              "name": "wh-i686-unknown-linux-musl.tar.xz",
               "target": "i686-unknown-linux-musl",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-aarch64-unknown-linux-musl.tar.gz",
+              "name": "wh-aarch64-unknown-linux-musl.tar.xz",
               "target": "aarch64-unknown-linux-musl",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-armv7-unknown-linux-musleabihf.tar.gz",
+              "name": "wh-armv7-unknown-linux-musleabihf.tar.xz",
               "target": "armv7-unknown-linux-musleabihf",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-arm-unknown-linux-musleabihf.tar.gz",
+              "name": "wh-arm-unknown-linux-musleabihf.tar.xz",
               "target": "arm-unknown-linux-musleabihf",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-powerpc-unknown-linux-gnu.tar.gz",
+              "name": "wh-powerpc-unknown-linux-gnu.tar.xz",
               "target": "powerpc-unknown-linux-gnu",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-powerpc64-unknown-linux-gnu.tar.gz",
+              "name": "wh-powerpc64-unknown-linux-gnu.tar.xz",
               "target": "powerpc64-unknown-linux-gnu",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-powerpc64le-unknown-linux-gnu.tar.gz",
+              "name": "wh-powerpc64le-unknown-linux-gnu.tar.xz",
               "target": "powerpc64le-unknown-linux-gnu",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-x86_64-apple-darwin.tar.gz",
+              "name": "wh-x86_64-apple-darwin.tar.xz",
               "target": "x86_64-apple-darwin",
               "os": "macos-latest",
               "native": true
             },
             {
-              "name": "wh-x86_64-unknown-freebsd.tar.gz",
+              "name": "wh-x86_64-unknown-freebsd.tar.xz",
               "target": "x86_64-unknown-freebsd",
               "os": "ubuntu-latest",
               "native": false
             },
             {
-              "name": "wh-x86_64-unknown-netbsd.tar.gz",
+              "name": "wh-x86_64-unknown-netbsd.tar.xz",
               "target": "x86_64-unknown-netbsd",
               "os": "ubuntu-latest",
               "native": false
@@ -179,7 +179,7 @@
         {
           "name": "PostBuild | Prepare",
           "if": "matrix.os != 'windows-latest'",
-          "run": "cd target/${{ matrix.target }}/release\nstrip wh || true\ntar czvf ../../../${{ matrix.name }} wh\ncd -"
+          "run": "cd target/${{ matrix.target }}/release\nstrip wh || true\ntar cJf ../../../${{ matrix.name }} wh\ncd -"
         },
         {
           "name": "PostBuild | Prepare",
