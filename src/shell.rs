@@ -3,7 +3,9 @@
 //! This is a pretty naive implementation but it should be enough for the use
 //! case.
 
-use std::fmt::{self,};
+use std::fmt::{
+	self,
+};
 
 use nom::{
 	branch::alt,

@@ -6,7 +6,9 @@ mod shell;
 mod win;
 
 use std::{
-	fs::{self,},
+	fs::{
+		self,
+	},
 	io::{
 		StdoutLock,
 		Write,
