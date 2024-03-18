@@ -31,10 +31,10 @@ cargo install --locked --branch main --git https://github.com/insomnimus/wh
 You might want to add a shell function in your profile so that `wh` can read your aliases and functions:
 ```shell
 wh() {
-	(
+	{
 		alias
 		declare -f
-	) | /usr/bin/wh --read-alias --read-functions "$@"
+	} | /usr/bin/wh --read-alias --read-functions "$@"
 }
 ```
 
