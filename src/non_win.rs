@@ -3,6 +3,7 @@ use std::{
 	fs,
 	io::{
 		self,
+		IsTerminal,
 		Read,
 		Write,
 	},
@@ -10,7 +11,6 @@ use std::{
 	path::Path,
 };
 
-use atty::Stream;
 use clap::Parser;
 use globset::{
 	GlobBuilder,
@@ -29,24 +29,24 @@ use super::{
 
 #[derive(Parser)]
 pub struct NonWindowsArgs {
-	/// For compatibility with GNU which; has no effect.
+	/// For compatibility with GNU which; has no effect
 	#[arg(long = "tty-only")]
 	_tty_only: bool,
 
-	/// Read aliases from stdin, reporting matching ones on stdout.
+	/// Read aliases from stdin, reporting matching ones on stdout
 	#[arg(short = 'i', long)]
 	read_alias: bool,
 
-	/// Ignore option --read-alias.
+	/// Ignore option --read-alias
 	#[arg(long)]
 	skip_alias: bool,
 
-	/// Read shell function definitions from stdin, reporting matching ones on.
+	/// Read shell function definitions from stdin, reporting matching ones on
 	/// stdout
 	#[arg(long)]
 	read_functions: bool,
 
-	/// Ignore option --read-functions; don't read stdin.
+	/// Ignore option --read-functions; don't read stdin
 	#[arg(long)]
 	skip_functions: bool,
 }
@@ -102,7 +102,7 @@ impl App {
 		if (self.x.read_alias && !self.x.skip_alias)
 			|| (self.x.read_functions && !self.x.skip_functions)
 		{
-			if atty::is(Stream::Stdin) {
+			if io::stdin().is_terminal() {
 				let warn = if self.x.read_alias
 					&& !self.x.skip_alias
 					&& self.x.read_functions

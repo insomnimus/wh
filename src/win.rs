@@ -16,7 +16,7 @@ use super::*;
 
 #[derive(Parser)]
 pub struct WindowsArgs {
-	/// Do not look in PATHEXT for non-exe extensions.
+	/// Do not look in PATHEXT for non-exe extensions
 	#[arg(short = 'P', long)]
 	no_pathext: bool,
 }

@@ -39,3 +39,10 @@ wh() {
 ```
 
 Don't forget to change `/usr/bin/wh` with the full path of `wh` on your system.
+
+## Shell Completions
+Currently there are hand-written tab completions for Powershell.
+You can get it by running `wh --completions powershell`.
+
+Register it by saving the output into a `.ps1` file and then running the script.
+If you want to have it be loaded automatically, add it to your Powershell profile.

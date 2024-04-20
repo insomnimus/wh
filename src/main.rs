@@ -20,38 +20,50 @@ use std::{
 	},
 };
 
-use clap::Parser;
+use clap::{
+	Parser,
+	ValueEnum,
+};
+
+#[derive(Debug, Clone, ValueEnum)]
+enum Shell {
+	Powershell,
+}
 
 #[derive(Parser)]
-/// Write the full path of COMMAND(s) to standard output.
+/// Write the full path of COMMAND(s) to standard output
 #[command(version)]
 struct App {
-	/// Skip directories in PATH that start with a dot.
+	/// Skip directories in PATH that start with a dot
 	#[arg(long)]
 	skip_dot: bool,
 
 	/// Skip directories in PATH that start with a tilde and executables which
-	/// reside in the HOME directory.
+	/// reside in the HOME directory
 	#[arg(long)]
 	skip_tilde: bool,
 
 	/// If a directory in PATH starts with a dot and a matching executable was
 	/// found for that path, then print "./programname" rather than the full
-	/// path.
+	/// path
 	#[arg(long)]
 	show_dot: bool,
 
 	/// Output a tilde when a directory matches the HOME directory. This option
-	/// is ignored when wh is invoked as root (admin on Windows).
+	/// is ignored when wh is invoked as root (admin on Windows)
 	#[arg(long)]
 	show_tilde: bool,
 
-	/// Print all matches, not just the first.
+	/// Print all matches, not just the first
 	#[arg(short, long)]
 	all: bool,
 
-	/// Commands to look in PATH.
-	#[arg(required = true, value_name = "command")]
+	/// Print shell completions
+	#[arg(long)]
+	completions: Option<Shell>,
+
+	/// Commands to look in PATH
+	#[arg(required_unless_present = "completions", value_name = "command")]
 	commands: Vec<String>,
 
 	#[cfg(windows)]
@@ -134,6 +146,14 @@ impl PathEntry {
 
 fn main() {
 	let mut app = App::parse();
+
+	if let Some(shell) = app.completions {
+		match shell {
+			Shell::Powershell => print!("{}", include_str!("../completions/wh_completions.ps1")),
+		}
+		return;
+	}
+
 	if app.show_tilde {
 		#[cfg(not(windows))]
 		{
